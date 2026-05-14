@@ -24,35 +24,61 @@ def accuracy(logits, y_true, PAD_IDX):
 
 
 def train_model(config=None):
-    data_loader = LoadEnglishGermanDataset(config.train_corpus_file_paths, tokenizer=my_tokenizer,
-                                           batch_size=config.batch_size, min_freq=config.min_freq)
+    data_loader = LoadEnglishGermanDataset(
+        config.train_corpus_file_paths,
+        tokenizer=my_tokenizer,
+        batch_size=config.batch_size,
+        min_freq=config.min_freq
+    )
+
     train_iter, val_iter, test_iter = data_loader.load_train_val_test_data(
         train_file_paths=config.train_corpus_file_paths,
         val_file_paths=config.val_corpus_file_paths,
         test_file_paths=config.test_corpus_file_paths
     )
-    translation_model = Translation_model(
+
+    model = Translation_model(
         src_vocab_size=len(data_loader.de_vocab),
         tgt_vocab_size=len(data_loader.en_vocab),
         d_model=config.d_model,
         num_heads=config.num_heads,
         num_encoder_layers=config.num_encoder_layers,
         num_decoder_layers=config.num_decoder_layers,
-        dim_feedforward=config.dim_feedforward, dropout=config.dropout
-    )
-    model_save_path = os.path.join(config.model_save_path, 'model.pt')
-    if os.path.exists(model_save_path):
-        loaded_params = torch.load(model_save_path)
-        translation_model.load_state_dict(loaded_params)
-        logging.info('Loaded existed model from {}'.format(model_save_path))
-    translation_model.to(config.device)
+        dim_feedforward=config.dim_feedforward,
+        dropout=config.dropout
+    ).to(config.device)
 
-    # 训练过程
-    loss_fn = torch.nn.CrossEntropyLoss(ignore_index=data_loader.PAD_IDX)
-    optimizer = torch.optim.Adam(translation_model.parameters(), lr=0., betas=(config.beta1, config.beta2),
-                                 eps=config.epsilon)
-    lr_scheduler = CustomSchedule(config.d_model, optimizer=optimizer)
-    translation_model.train()
+    model_save_path = os.path.join(config.model_save_path, 'model.pt')
+
+    if os.path.exists(model_save_path):
+        loaded_params = torch.load(model_save_path, map_location=config.device)
+        model.load_state_dict(loaded_params)
+        logging.info(f'Loaded existed model from {model_save_path}')
+
+    loss_fn = torch.nn.CrossEntropyLoss(
+        ignore_index=data_loader.PAD_IDX
+    )
+
+    optimizer = torch.optim.Adam(
+        model.parameters(),
+        lr=0.,
+        betas=(config.beta1, config.beta2),
+        eps=config.epsilon
+    )
+
+    lr_scheduler = CustomSchedule(
+        config.d_model,
+        optimizer=optimizer
+    )
+
+    best_val_acc = 0.0
+
+    for epoch in range(config.epochs):
+
+        model.train()
+
+        total_loss = 0.0
+        total_acc = 0.0
     for epoch in range(config.epochs):
         losses = 0
         for idx, (src, tgt) in enumerate(train_iter):
