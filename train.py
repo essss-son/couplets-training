@@ -73,25 +73,37 @@ def train_model(config=None):
 
     best_val_acc = 0.0
 
-    for epoch in range(config.epochs):
+     for epoch in range(config.epochs):
 
         model.train()
 
         total_loss = 0.0
         total_acc = 0.0
-    for epoch in range(config.epochs):
-        losses = 0
+
         for idx, (src, tgt) in enumerate(train_iter):
+
             src = src.to(config.device)  # [src_len,batch_size]
             tgt = tgt.to(config.device)  # [tgt_len,batch_size]
+
             tgt_input = tgt[:-1, :]
             tgt_output = tgt[1:, :]
-            src_mask, tgt_mask, src_padding_mask, tgt_padding_mask = data_loader.create_mask(src, tgt_input,
-                                                                                             config.device)
 
-            logits = translation_model(src=src, tgt=tgt_input, src_mask=src_mask, tgt_mask=tgt_mask, memory_mask=None,
-                                       src_key_padding_mask=src_padding_mask, tgt_key_padding_mask=tgt_padding_mask,
-                                       memory_key_padding_mask=src_padding_mask)
+            src_mask, tgt_mask, src_padding_mask, tgt_padding_mask = data_loader.create_mask(
+                src,
+                tgt_input,
+                config.device
+            )
+
+            logits = model(
+                src=src,
+                tgt=tgt_input,
+                src_mask=src_mask,
+                tgt_mask=tgt_mask,
+                memory_mask=None,
+                src_key_padding_mask=src_padding_mask,
+                tgt_key_padding_mask=tgt_padding_mask,
+                memory_key_padding_mask=src_padding_mask
+            )
             # logits:[tgt_len, batch_size, tgt_vocab_size]  tgt_output:[tgt_len,batch_size]
             # 为了符合loss的输入格式 对logits和tgt_output进行view   但是会在调用accuracy时报错 原因是只需要在loss里面保持view后的维度就行
             # loss计算之后的维度仍需保持为logits:[tgt_len, batch_size, tgt_vocab_size]  tgt_output:[tgt_len,batch_size] 然后传入accuracy  所以我把以下两行注释掉
