@@ -17,8 +17,8 @@ def greedy_decode(model, src, max_len, start_symbol, config, data_loader):
         _, next_word = torch.max(prob, dim=1)  # 选择概率最大者 _是概率  next_word是id
         next_word = next_word.item()
         ys = torch.cat([ys, torch.ones(1, 1).type_as(src.data).fill_(next_word)], dim=0)
-        # 将当前时刻解码的预测输出结果，同之前所有的结果堆叠作为输入再去预测下一个词。
-        if next_word == data_loader.EOS_IDX:  # 如果当前时刻的预测输出为结束标志，则跳出循环结束预测。
+        
+        if next_word == data_loader.EOS_IDX:
             break
     return ys
 
