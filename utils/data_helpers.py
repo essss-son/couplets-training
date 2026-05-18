@@ -50,9 +50,9 @@ def build_vocab(tokenizer, filepath, specials=None, min_freq=1):
 class LoadEnglishGermanDataset():
     def __init__(self, train_file_paths, tokenizer=None, batch_size=16, min_freq=1):
         specials = ['<unk>', '<pad>', '<bos>', '<eos>']
-        self.tokenizer = tokenizer()   #这个地方之前没填空格
+        self.tokenizer = tokenizer()  
         self.de_vocab = build_vocab(self.tokenizer['de'], train_file_paths[0], specials,
-                                    min_freq)  # 这里train_file_paths要根据config文件来改
+                                    min_freq) 
         self.en_vocab = build_vocab(self.tokenizer['en'], train_file_paths[1], specials,
                                     min_freq)
         self.PAD_IDX = self.de_vocab['<pad>']
@@ -80,10 +80,10 @@ class LoadEnglishGermanDataset():
             de_batch.append(de_item)
             en = torch.cat([torch.tensor([self.BOS_IDX]), en_item, torch.tensor([self.EOS_IDX])])
             en_batch.append(en)
-        # 现在de_batch或者en_batch应该是一个长列表，列表里每一个元素都是一个句子
+        
         de_batch = pad_sequence(de_batch, padding_value=self.PAD_IDX)
         en_batch = pad_sequence(en_batch, padding_value=self.PAD_IDX)
-        # 经过这个pad_sequence过后  自动将将de_batch或者en_batch从一个长list变成了[seq_len,batch_size]的形状
+        
 
         return de_batch, en_batch
 
