@@ -25,7 +25,7 @@ class Vocab(object):
             specials = ['<unk>', '<pad>', '<bos>', '<eos>']
         self.specials = specials
         self.stoi = {v: k for v, k in zip(specials, range(len(specials)))}
-        self.itos = specials[:]  # 如果是self.itos = specials  会导致共用同一个列表 对一个的修改会影响另一个
+        self.itos = specials[:] 
 
         for c in counter.most_common():
             if c[1] >= min_freq:
