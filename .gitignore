@@ -1,3 +1,5 @@
-cache/ 
-*.pt 
+cache/
+*.pt
 *.tar.gz
+__pycache__/
+.idea/
