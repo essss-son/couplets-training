@@ -4,8 +4,6 @@ import torch.nn.functional as F
 import torch.nn as nn
 import torch
 
-is_print_shape = False
-
 class MyMultiheadAttention(nn.Module):
     """自实现的多头注意力层。
 
@@ -56,6 +54,7 @@ class MyMultiheadAttention(nn.Module):
             v_proj=self.v_proj,
             attn_mask=attn_mask,
         )
+
     def multi_head_attention_forward(self,
                                      query,
                                      key,
@@ -72,11 +71,11 @@ class MyMultiheadAttention(nn.Module):
                                      need_weights=True,
                                      average_attn_weights=True,
                                      ):
-        q = q_proj(query)  # [tgt_len,batch_size,embed_dim] x [embed_dim,kdim * num_heads] = [tgt_len,batch_size,kdim * num_heads]
-        k = k_proj(key)  # [src_len, batch_size,embed_dim] x [embed_dim,kdim * num_heads] = [src_len,batch_size,kdim * num_heads]
-        v = v_proj(value)  # [src_len, batch_size, embed_dim] x [embed_dim,vdim * num_heads]  = [src_len, batch_size, vdim * num_heads]
+        q = q_proj(query)
+        k = k_proj(key)
+        v = v_proj(value)
 
-        tgt_len, bsz, embed_dim = query.size()  # [tgt_len,batch_size,embed_dim]
+        tgt_len, bsz, embed_dim = query.size()
 
         src_len = key.size(0)
         head_dim = embed_dim // num_heads
@@ -84,7 +83,7 @@ class MyMultiheadAttention(nn.Module):
         q = q * scaling
 
         if attn_mask is not None:
-            if attn_mask.dim() == 2:  # [tgt_len,src_len] or [num_heads*batch_size,tgt_len, src_len]
+            if attn_mask.dim() == 2:
                 attn_mask = attn_mask.unsqueeze(0)
                 if list(attn_mask.size()) != [1, query.size(0), key.size(0)]:
                     raise ValueError('The size of the 2D attn_mask is not correct.')
@@ -92,36 +91,31 @@ class MyMultiheadAttention(nn.Module):
                 if list(attn_mask.size()) != [bsz*num_heads, query.size(0), key.size(0)]:
                     raise ValueError('The size of the 3D attn_mask is not correct.')
 
-        q = q.view(tgt_len, bsz * num_heads, head_dim).transpose(0, 1) #[batch_size * num_heads,tgt_len,kdim]
-        k = k.view(-1, bsz * num_heads, head_dim).transpose(0, 1) #[batch_size * num_heads,src_len,kdim]
-        v = v.view(-1, bsz * num_heads, head_dim).transpose(0, 1) #[batch_size * num_heads,src_len,vdim]
+        q = q.view(tgt_len, bsz * num_heads, head_dim).transpose(0, 1)
+        k = k.view(-1, bsz * num_heads, head_dim).transpose(0, 1)
+        v = v.view(-1, bsz * num_heads, head_dim).transpose(0, 1)
 
-        attn_output_weights = torch.bmm(q, k.transpose(1, 2)) # [batch_size * num_heads,tgt_len,kdim] x [batch_size * num_heads, kdim, src_len]
-                                                              # = [batch_size * num_heads,tgt_len,src_len]
+        attn_output_weights = torch.bmm(q, k.transpose(1, 2))
+
         if attn_mask is not None:
-            attn_output_weights += attn_mask    # [batch_size*num_heads,tgt_len,src_len]
+            attn_output_weights += attn_mask
         if key_padding_mask is not None:
-            attn_output_weights = attn_output_weights.view(bsz, num_heads, tgt_len, src_len)  # 变成[batch_size, num_heads, tgt_len, src_len]的形状
+            attn_output_weights = attn_output_weights.view(bsz, num_heads, tgt_len, src_len)
 
             attn_output_weights = attn_output_weights.masked_fill(key_padding_mask.unsqueeze(1).unsqueeze(2), -float('inf'))
-            # 扩展维度，从[batch_size,src_len]变成[batch_size,1,1,src_len]
 
             attn_output_weights = attn_output_weights.view(bsz*num_heads, tgt_len, src_len)
-            # [batch_size * num_heads, tgt_len, src_len]
-        attn_output_weights = F.softmax(attn_output_weights, dim=-1) # [batch_size * num_heads, tgt_len, src_len]
+
+        attn_output_weights = F.softmax(attn_output_weights, dim=-1)
         attn_output_weights = F.dropout(attn_output_weights, p=dropout_p, training=training)
 
-        attn_output = torch.bmm(attn_output_weights, v) # Z=[batch_size*num_heads,tgt_len, src_len]@[batch_size * num_heads,src_len,vdim]
-                                                        # = [batch_size * num_heads,tgt_len,vdim]
+        attn_output = torch.bmm(attn_output_weights, v)
 
         attn_output = attn_output.transpose(0,1).contiguous().view(tgt_len, bsz, embed_dim)
 
         attn_output_weights = attn_output_weights.view(bsz, num_heads, tgt_len, src_len)
-        Z = out_proj(attn_output) # 这里就是多个z  线性组合成Z  [tgt_len,batch_size,embed_dim]
-        if is_print_shape:
-            print(f"\t 多头合并形状 [tgt_len, bsz, embed_dim]: {attn_output.size()}")
-            print(f"\t W_o 权重形状 [embed_dim, embed_dim]: {out_proj.weight.size()}")
-            print(f"\t 输出形状 [tgt_len, bsz, embed_dim]: {Z.size()}")
+
+        Z = out_proj(attn_output)
         if need_weights:
             if average_attn_weights:
                 attn_weights = attn_output_weights.sum(dim=1) / num_heads
